@@ -1,0 +1,15 @@
+[package]
+name = "booted"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+keywords = ["statistics"]
+categories = ["science", "data-analysis"]
+description = "A library for bootstrapping estimators on arbitrary data structures."
+
+[dependencies]
+bon = "3.8.1"
+rand = "0.9.2"
+rand_distr = "0.5.1"
+rayon = { version = "1.11.0" }
+serde = { version = "1.0.228", features = ["derive"] }
