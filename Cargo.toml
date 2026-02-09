@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 keywords = ["statistics"]
-categories = ["science", "statistics"]
+categories = ["science"]
 description = "A library for bootstrapping estimators on arbitrary data structures."
 
 [dependencies]
