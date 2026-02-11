@@ -22,6 +22,7 @@ fn test_scalar_bootstrap_mean() {
     let n_samples = 1000;
 
     let data = generate_data(n_samples, true_mean, true_std_dev);
+    dbg!(&data);
 
     // 2. Configure Bootstrap
     // We expect the Standard Error of the mean to be approx sigma / sqrt(n)
