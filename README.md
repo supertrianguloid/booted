@@ -25,3 +25,8 @@ let summary: BootstrapSummary = result.summarize();
 # Algorithms
 
 Currently supported are simple n-out-of-n bootstrap, m-out-of-n bootstrap and block bootstrap.
+
+# Roadmap
+
+- Optional higher level API
+- BCa, Bayesian, ABC
