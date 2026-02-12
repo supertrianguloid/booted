@@ -1,5 +1,6 @@
 use crate::samplers::{Sampler, SamplingStrategy};
 use bon::Builder;
+use rand::seq::IndexedRandom;
 use rayon::prelude::*;
 use serde::Serialize;
 
@@ -47,20 +48,90 @@ impl BootstrapStatistic for Vec<f64> {
     }
 }
 
+/// An Estimator contains the function to calculate the statistic (which contains the data), and the length of the data.
+///
+/// It is immutable and safe to share across threads.
 #[derive(Builder)]
-pub struct Bootstrap<F, T>
-where
-    F: Fn(&[usize]) -> Option<T> + Send + Sync,
-    T: BootstrapStatistic,
-{
-    estimator: F,
+#[builder(start_fn = new)]
+pub struct Estimator<F> {
+    #[builder(name = from)]
+    func: F,
+    data_len: usize,
+}
+
+impl<F> Estimator<F> {
+    /// Applies the estimator function to a set of indices.
+    pub fn apply<T>(&self, indices: &[usize]) -> Option<T>
+    where
+        F: Fn(&[usize]) -> Option<T> + Sync,
+    {
+        (self.func)(indices)
+    }
+
+    pub fn data_len(&self) -> usize {
+        self.data_len
+    }
+
+    /// Consumes the current Estimator and returns a new one that applies bias correction.
+    ///
+    /// This works by wrapping the original estimator function in a new closure that performs
+    /// an inner bootstrap loop.
+    pub fn bias_correct<T>(
+        self,
+        n_boot: usize,
+    ) -> Estimator<impl Fn(&[usize]) -> Option<T> + Send + Sync + Clone>
+    where
+        F: Fn(&[usize]) -> Option<T> + Send + Sync + Clone + 'static,
+        T: BootstrapStatistic,
+    {
+        /// Helper function to perform the bias correction logic.
+        fn bootstrap_bias_correct<F, T>(stat: &F, n_boot: usize, data: &[usize]) -> Option<T>
+        where
+            F: Fn(&[usize]) -> Option<T> + Send + Sync,
+            T: BootstrapStatistic,
+        {
+            let n = data.len();
+            let theta_hat = stat(data)?;
+
+            let mut boot_sum = T::zero(theta_hat.len());
+            let mut valid_count = 0;
+            for _ in 0..n_boot {
+                let resampled_data: Vec<usize> = (0..n)
+                    .map(|_| *data.choose(&mut rand::rng()).unwrap())
+                    .collect();
+
+                if let Some(val) = stat(&resampled_data) {
+                    boot_sum = boot_sum.add(&val);
+                    valid_count += 1;
+                }
+            }
+
+            if valid_count < n_boot / 2 {
+                return None;
+            }
+
+            let mean_boot = boot_sum.scale(1.0 / valid_count as f64);
+            Some(theta_hat.scale(2.0).sub(&mean_boot))
+        }
+        let func = self.func;
+        let data_len = self.data_len;
+
+        let new_func = move |indices: &[usize]| bootstrap_bias_correct(&func, n_boot, indices);
+
+        Estimator {
+            func: new_func,
+            data_len,
+        }
+    }
+}
+
+#[derive(Builder)]
+pub struct Bootstrap<F> {
+    estimator: Estimator<F>,
     #[builder(default = 1000)]
     n_boot: usize,
     #[builder(default = SamplingStrategy::Simple)]
     sampler: SamplingStrategy,
-    data_len: usize,
-    #[builder(default = 0)]
-    bias_correct_nboot: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -72,30 +143,25 @@ pub struct BootstrapResult<T> {
     pub sampler: SamplingStrategy,
 }
 
-impl<F, T> Bootstrap<F, T>
-where
-    F: Fn(&[usize]) -> Option<T> + Send + Sync + Clone + 'static,
-    T: BootstrapStatistic,
-{
-    pub fn run(self) -> BootstrapResult<T> {
-        let central_val = (self.estimator)(&(0..self.data_len).collect::<Vec<usize>>());
+impl<F> Bootstrap<F> {
+    pub fn run<T>(self) -> BootstrapResult<T>
+    where
+        F: Fn(&[usize]) -> Option<T> + Send + Sync,
+        T: BootstrapStatistic,
+    {
+        let data_len = self.estimator.data_len();
+        let central_val = self.estimator.apply(&(0..data_len).collect::<Vec<usize>>());
 
-        let stat_fn: Box<dyn Fn(&[usize]) -> Option<T> + Send + Sync> =
-            if self.bias_correct_nboot > 0 {
-                let est = self.estimator.clone();
-                let bc_n = self.bias_correct_nboot;
-
-                Box::new(move |data: &[usize]| bootstrap_bias_correct(est.clone(), bc_n, data))
-            } else {
-                Box::new(self.estimator)
-            };
+        // We access the function directly. Since `Bootstrap` owns the `Estimator`,
+        // and we are inside `run(self)`, we own the function.
+        // We pass a reference to the function to `map`, requiring F to be Sync.
+        let func = &self.estimator.func;
 
         let samples: Vec<Option<T>> = (0..self.n_boot)
             .into_par_iter()
             .map(|_| {
-                // Generate indices using the chosen strategy
-                let resampled_indices = self.sampler.sample(self.data_len);
-                stat_fn(&resampled_indices)
+                let resampled_indices = self.sampler.sample(data_len);
+                func(&resampled_indices)
             })
             .collect();
 
@@ -110,36 +176,4 @@ where
             sampler: self.sampler,
         }
     }
-}
-
-fn bootstrap_bias_correct<F, T>(stat: F, n_boot: usize, data: &[usize]) -> Option<T>
-where
-    F: Fn(&[usize]) -> Option<T> + Send + Sync + Clone,
-    T: BootstrapStatistic,
-{
-    let n = data.len();
-    let theta_hat = stat(data)?;
-
-    let mut boot_sum = T::zero(theta_hat.len());
-    let mut valid_count = 0;
-
-    for _ in 0..n_boot {
-        let raw_indices = SamplingStrategy::Simple.sample(n);
-
-        let resampled_data: Vec<usize> = raw_indices.iter().map(|&i| data[i]).collect();
-
-        if let Some(val) = stat(&resampled_data) {
-            boot_sum = boot_sum.add(&val);
-            valid_count += 1;
-        }
-    }
-
-    // TODO: Come up with something better for this
-    if valid_count < n_boot / 2 {
-        return None;
-    }
-
-    let mean_boot = boot_sum.scale(1.0 / valid_count as f64);
-
-    Some(theta_hat.scale(2.0).sub(&mean_boot))
 }
