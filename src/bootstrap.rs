@@ -55,8 +55,8 @@ impl BootstrapStatistic for Vec<f64> {
 #[builder(start_fn = new)]
 pub struct Estimator<F> {
     #[builder(name = from)]
-    func: F,
-    data_len: usize,
+    func: F, // The function which eats indices (a subset of the population indices) and produces the statistic
+    indices: Vec<usize>, // The indices for the entire population
 }
 
 impl<F> Estimator<F> {
@@ -68,8 +68,8 @@ impl<F> Estimator<F> {
         (self.func)(indices)
     }
 
-    pub fn data_len(&self) -> usize {
-        self.data_len
+    pub fn indices(&self) -> &[usize] {
+        &self.indices
     }
 
     /// Consumes the current Estimator and returns a new one that applies bias correction.
@@ -114,13 +114,13 @@ impl<F> Estimator<F> {
             Some(theta_hat.scale(2.0).sub(&mean_boot))
         }
         let func = self.func;
-        let data_len = self.data_len;
+        let indices = self.indices;
 
         let new_func = move |indices: &[usize]| bootstrap_bias_correct(&func, n_boot, indices);
 
         Estimator {
             func: new_func,
-            data_len,
+            indices,
         }
     }
 }
@@ -149,8 +149,8 @@ impl<F> Bootstrap<F> {
         F: Fn(&[usize]) -> Option<T> + Send + Sync,
         T: BootstrapStatistic,
     {
-        let data_len = self.estimator.data_len();
-        let central_val = self.estimator.apply(&(0..data_len).collect::<Vec<usize>>());
+        let indices = self.estimator.indices();
+        let central_val = self.estimator.apply(indices);
 
         // We access the function directly. Since `Bootstrap` owns the `Estimator`,
         // and we are inside `run(self)`, we own the function.
@@ -160,7 +160,7 @@ impl<F> Bootstrap<F> {
         let samples: Vec<Option<T>> = (0..self.n_boot)
             .into_par_iter()
             .map(|_| {
-                let resampled_indices = self.sampler.sample(data_len);
+                let resampled_indices = self.sampler.sample(indices);
                 func(&resampled_indices)
             })
             .collect();

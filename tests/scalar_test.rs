@@ -23,7 +23,7 @@ fn test_scalar_bootstrap_mean() {
 
     // 2. Configure Estimator
     let estimator = Estimator::new()
-        .data_len(n_samples)
+        .indices((0..n_samples).collect())
         .from(move |indices: &[usize]| {
             let sum: f64 = indices.iter().map(|&i| data[i]).sum();
             Some(sum / indices.len() as f64)
@@ -66,7 +66,7 @@ fn test_vector_bootstrap_multivariate() {
 
     // 2. Configure Estimator
     let estimator = Estimator::new()
-        .data_len(n)
+        .indices((0..n).collect())
         .from(move |indices: &[usize]| {
             if indices.is_empty() {
                 return None;
@@ -104,7 +104,7 @@ fn test_bias_corrected_bootstrap() {
 
     // Create an estimator and apply bias correction
     let estimator = Estimator::new()
-        .data_len(n)
+        .indices((0..n).collect())
         .from(move |indices: &[usize]| {
             let sum: f64 = indices.iter().map(|&i| data[i]).sum();
             Some(sum / indices.len() as f64)
@@ -130,7 +130,7 @@ fn test_handling_failures() {
     let n = 10;
 
     let estimator = Estimator::new()
-        .data_len(n)
+        .indices((0..n).collect())
         .from(move |indices: &[usize]| {
             // Fail if the first index is even
             if indices[0] % 2 == 0 { None } else { Some(1.0) }

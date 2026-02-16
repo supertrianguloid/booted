@@ -3,7 +3,7 @@ use rand::distr::{Distribution, Uniform};
 use serde::Serialize;
 
 pub trait Sampler {
-    fn sample(&self, data_len: usize) -> Vec<usize>;
+    fn sample(&self, indices: &[usize]) -> Vec<usize>;
 }
 #[derive(Debug, Serialize, Clone)]
 pub enum SamplingStrategy {
@@ -13,20 +13,25 @@ pub enum SamplingStrategy {
 }
 
 impl Sampler for SamplingStrategy {
-    fn sample(&self, data_len: usize) -> Vec<usize> {
+    fn sample(&self, indices: &[usize]) -> Vec<usize> {
         // #[inline(always)]
-        fn m_of_n_indices(data_len: usize, block_size: usize) -> Vec<usize> {
-            let length_new = data_len / block_size;
+        fn m_of_n_indices(indices: &[usize], block_size: usize) -> Vec<usize> {
+            let length_new = indices.len() / block_size;
             let mut rng = rand::rng();
-            let samples: Vec<_> = Uniform::try_from(0..data_len)
+            let index_indices: Vec<_> = Uniform::try_from(0..indices.len())
                 .unwrap()
                 .sample_iter(&mut rng)
                 .take(length_new)
                 .collect();
-            samples
+            let mut new_indices = vec![];
+            for i in index_indices {
+                new_indices.push(indices[i]);
+            }
+            new_indices
         }
-        pub fn block_indices(data_len: usize, block_size: usize) -> Vec<usize> {
+        pub fn block_indices(indices: &[usize], block_size: usize) -> Vec<usize> {
             assert!(block_size > 0);
+            let data_len = indices.len();
 
             let effective_len = data_len - data_len % block_size;
             if effective_len == 0 {
@@ -50,9 +55,9 @@ impl Sampler for SamplingStrategy {
         }
 
         match self {
-            SamplingStrategy::Simple => m_of_n_indices(data_len, 1),
-            SamplingStrategy::MOutOfN { m } => m_of_n_indices(data_len, m.clone()),
-            SamplingStrategy::Block { block_size } => block_indices(data_len, block_size.clone()),
+            SamplingStrategy::Simple => m_of_n_indices(indices, 1),
+            SamplingStrategy::MOutOfN { m } => m_of_n_indices(indices, m.clone()),
+            SamplingStrategy::Block { block_size } => block_indices(indices, block_size.clone()),
         }
     }
 }
@@ -91,9 +96,9 @@ mod tests {
 
     #[test]
     fn thinned_sample_test() {
-        let sample = (SamplingStrategy::MOutOfN { m: 2 }).sample(10);
+        let sample = (SamplingStrategy::MOutOfN { m: 2 }).sample(&(0..10).collect::<Vec<usize>>());
         assert_eq!(sample.len(), 5);
-        let sample = (SamplingStrategy::MOutOfN { m: 3 }).sample(10);
+        let sample = (SamplingStrategy::MOutOfN { m: 3 }).sample(&(0..10).collect::<Vec<usize>>());
         assert_eq!(sample.len(), 3);
     }
     #[test]
