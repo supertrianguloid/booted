@@ -53,17 +53,17 @@ impl BootstrapStatistic for Vec<f64> {
 /// It is immutable and safe to share across threads.
 #[derive(Builder, Clone)]
 #[builder(start_fn = new)]
-pub struct Estimator<F> {
+pub struct Estimator<F: Clone> {
     #[builder(name = from)]
     func: F, // The function which eats indices (a subset of the population indices) and produces the statistic
     indices: Vec<usize>, // The indices for the entire population
 }
 
-impl<F> Estimator<F> {
+impl<F: Clone> Estimator<F> {
     /// Applies the estimator function to a set of indices.
     pub fn apply<T>(&self, indices: &[usize]) -> Option<T>
     where
-        F: Fn(&[usize]) -> Option<T> + Sync,
+        F: Fn(&[usize]) -> Option<T> + Sync + Clone,
     {
         (self.func)(indices)
     }
@@ -139,7 +139,7 @@ impl<F> Estimator<F> {
 }
 
 #[derive(Builder)]
-pub struct Bootstrap<F> {
+pub struct Bootstrap<F: Clone> {
     estimator: Estimator<F>,
     #[builder(default = 1000)]
     n_boot: usize,
@@ -156,10 +156,10 @@ pub struct BootstrapResult<T> {
     pub sampler: SamplingStrategy,
 }
 
-impl<F> Bootstrap<F> {
+impl<F: Clone> Bootstrap<F> {
     pub fn run<T>(self) -> BootstrapResult<T>
     where
-        F: Fn(&[usize]) -> Option<T> + Send + Sync,
+        F: Fn(&[usize]) -> Option<T> + Send + Sync + Clone,
         T: BootstrapStatistic,
     {
         let indices = self.estimator.indices();
