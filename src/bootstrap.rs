@@ -51,7 +51,7 @@ impl BootstrapStatistic for Vec<f64> {
 /// An Estimator contains the function to calculate the statistic (which contains the data), and the length of the data.
 ///
 /// It is immutable and safe to share across threads.
-#[derive(Builder)]
+#[derive(Builder, Clone)]
 #[builder(start_fn = new)]
 pub struct Estimator<F> {
     #[builder(name = from)]
