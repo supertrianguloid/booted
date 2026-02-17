@@ -149,3 +149,51 @@ fn test_handling_failures() {
     assert!(summary.failed_samples < 100);
     assert_eq!(summary.statistics.mean, 1.0);
 }
+#[test]
+fn test_double_bootstrap() {
+    // 1. Setup Data
+    let true_mean = 10.0;
+    let true_std_dev = 2.0;
+    let n_samples = 2000;
+    let n_boot = 100;
+    let data = generate_data(n_samples, true_mean, true_std_dev);
+
+    // 2. Configure Estimator
+    let outer_estimator = Estimator::new()
+        .indices((0..n_samples).collect())
+        .from(move |indices: &[usize]| {
+            let data = data.clone();
+            let inner_estimator = Estimator::new()
+                .indices(indices.to_owned())
+                .from(move |indices: &[usize]| {
+                    let sum: f64 = indices.iter().map(|&i| data[i]).sum();
+                    Some(sum / indices.len() as f64)
+                })
+                .build();
+            Some(
+                Bootstrap::builder()
+                    .estimator(inner_estimator)
+                    .n_boot(n_boot)
+                    .sampler(SamplingStrategy::Simple)
+                    .build()
+                    .run()
+                    .summarize()
+                    .statistics
+                    .stddev,
+            )
+        })
+        .build();
+
+    // 3. Configure Bootstrap
+    let bootstrap = Bootstrap::builder()
+        .estimator(outer_estimator)
+        .n_boot(n_boot)
+        .sampler(SamplingStrategy::Simple)
+        .build();
+
+    // 4. Run and Summarize
+    let result = bootstrap.run();
+    let summary: BootstrapSummary = result.summarize();
+
+    println!("Scalar Summary: {:?}", summary);
+}
