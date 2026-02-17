@@ -3,7 +3,7 @@
 use booted::bootstrap::Bootstrap;
 use booted::bootstrap::Estimator;
 use booted::samplers::SamplingStrategy;
-use booted::summary::{BootstrapSummary, BootstrapSummaryVec, Summarizable};
+use booted::summary::{BootstrapSummary, Summarizable};
 use rand_distr::{Distribution, Normal};
 
 /// Helper to generate noisy data from a Normal distribution
@@ -39,7 +39,8 @@ fn test_scalar_bootstrap_mean() {
 
     // 4. Run and Summarize
     let result = bootstrap.run();
-    let summary: BootstrapSummary = result.summarize();
+    // Explicitly typing the summary for clarity, though inference works too
+    let summary: BootstrapSummary<f64> = result.summarize();
 
     println!("Scalar Summary: {:?}", summary);
 
@@ -88,7 +89,8 @@ fn test_vector_bootstrap_multivariate() {
 
     // 4. Run and Summarize
     let result = bootstrap.run();
-    let summary: BootstrapSummaryVec = result.summarize();
+    // Using generic Summary with Vec<f64>
+    let summary: BootstrapSummary<Vec<f64>> = result.summarize();
 
     println!("Vector Summary: {:?}", summary);
     assert_eq!(summary.n_boot, 500);
@@ -118,7 +120,7 @@ fn test_bias_corrected_bootstrap() {
         .build();
 
     let result = bootstrap.run();
-    let summary: BootstrapSummary = result.summarize();
+    let summary: BootstrapSummary<f64> = result.summarize();
 
     assert_eq!(summary.n_boot, 200);
     assert!(summary.failed_samples == 0);
@@ -143,12 +145,13 @@ fn test_handling_failures() {
         .build();
 
     let result = bootstrap.run();
-    let summary: BootstrapSummary = result.summarize();
+    let summary: BootstrapSummary<f64> = result.summarize();
 
     assert!(summary.failed_samples > 0);
     assert!(summary.failed_samples < 100);
     assert_eq!(summary.statistics.mean, 1.0);
 }
+
 #[test]
 fn test_double_bootstrap() {
     // 1. Setup Data
@@ -163,6 +166,7 @@ fn test_double_bootstrap() {
         .indices((0..n_samples).collect())
         .from(move |indices: &[usize]| {
             let data = data.clone();
+            // Inner estimator logic
             let inner_estimator = Estimator::new()
                 .indices(indices.to_owned())
                 .from(move |indices: &[usize]| {
@@ -170,6 +174,8 @@ fn test_double_bootstrap() {
                     Some(sum / indices.len() as f64)
                 })
                 .build();
+
+            // Run inner bootstrap to get stddev
             Some(
                 Bootstrap::builder()
                     .estimator(inner_estimator)
@@ -177,7 +183,7 @@ fn test_double_bootstrap() {
                     .sampler(SamplingStrategy::Simple)
                     .build()
                     .run()
-                    .summarize()
+                    .summarize() // Infers BootstrapSummary<f64>
                     .statistics
                     .stddev,
             )
@@ -193,7 +199,7 @@ fn test_double_bootstrap() {
 
     // 4. Run and Summarize
     let result = bootstrap.run();
-    let summary: BootstrapSummary = result.summarize();
+    let summary: BootstrapSummary<f64> = result.summarize();
 
     println!("Scalar Summary: {:?}", summary);
 }

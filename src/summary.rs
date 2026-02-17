@@ -1,5 +1,6 @@
-use crate::bootstrap::BootstrapResult;
+use crate::bootstrap::{BootstrapResult, BootstrapStatistic};
 use serde::Serialize;
+use std::fmt::Debug;
 
 const ONE_SIGMA: f64 = 0.682689492137086;
 const TWO_SIGMA: f64 = 0.954499736103642;
@@ -63,75 +64,79 @@ fn calculate_stats(data: &mut [f64]) -> Option<Statistics> {
     })
 }
 
-pub trait Summarizable<SummaryType> {
-    fn summarize(self) -> SummaryType;
-}
-#[derive(Debug, Serialize)]
-pub struct BootstrapSummary {
-    pub n_boot: usize,
-    pub replicas: Vec<f64>,
-    pub central_val: f64,
-    pub failed_samples: usize,
-    pub statistics: Statistics,
+/// Trait that defines the structure of the Summary Statistics for a given type.
+pub trait SummaryStatistic: BootstrapStatistic + Debug {
+    /// The type of the statistics object (e.g. `Statistics` or `Vec<Statistics>`)
+    type Stats: Serialize + Debug + Clone + Send + Sync;
+
+    /// Logic to reduce a list of replicas into the Stats type.
+    fn compute_stats(samples: &[Self]) -> Self::Stats;
 }
 
-impl Summarizable<BootstrapSummary> for BootstrapResult<f64> {
-    fn summarize(self) -> BootstrapSummary {
-        let mut replicas = self.samples;
-        let statistics = calculate_stats(&mut replicas).unwrap();
-
-        let central_val = self.central_val.unwrap_or(0.0);
-
-        BootstrapSummary {
-            n_boot: self.n_boot,
-            central_val,
-            failed_samples: self.failed_samples,
-            replicas,
-            statistics,
-        }
+impl SummaryStatistic for f64 {
+    type Stats = Statistics;
+    fn compute_stats(samples: &[Self]) -> Self::Stats {
+        let mut data = samples.to_vec();
+        calculate_stats(&mut data).expect("No samples to calculate stats")
     }
 }
-#[derive(Debug, Serialize)]
-pub struct BootstrapSummaryVec {
-    pub n_boot: usize,
-    pub replicas: Vec<Vec<f64>>,
-    pub central_val: Vec<f64>,
-    pub failed_samples: usize,
-    pub statistics: Vec<Statistics>,
-}
 
-impl Summarizable<BootstrapSummaryVec> for BootstrapResult<Vec<f64>> {
-    fn summarize(self) -> BootstrapSummaryVec {
-        if self.samples.is_empty() {
+impl SummaryStatistic for Vec<f64> {
+    type Stats = Vec<Statistics>;
+    fn compute_stats(samples: &[Self]) -> Self::Stats {
+        if samples.is_empty() {
             panic!("No valid bootstrap samples generated.");
         }
 
-        let vec_len = self.samples[0].len();
-        let n_samples = self.samples.len();
+        let vec_len = samples[0].len();
+        let n_samples = samples.len();
 
         // Transpose data: [sample][stat] -> [stat][sample]
         let mut transposed = vec![Vec::with_capacity(n_samples); vec_len];
-        for sample in &self.samples {
+        for sample in samples {
             for (i, val) in sample.iter().enumerate() {
                 transposed[i].push(*val);
             }
         }
 
-        let central_vals = self.central_val.unwrap_or_else(|| vec![0.0; vec_len]);
-
         let mut statistics_vec = Vec::with_capacity(vec_len);
-
         for mut col_data in transposed.into_iter() {
             let statistics = calculate_stats(&mut col_data).unwrap();
             statistics_vec.push(statistics);
         }
+        statistics_vec
+    }
+}
 
-        BootstrapSummaryVec {
+pub trait Summarizable<SummaryType> {
+    fn summarize(self) -> SummaryType;
+}
+
+#[derive(Debug, Serialize)]
+pub struct BootstrapSummary<T: SummaryStatistic> {
+    pub n_boot: usize,
+    pub replicas: Vec<T>,
+    pub central_val: T,
+    pub failed_samples: usize,
+    pub statistics: T::Stats,
+}
+
+impl<T: SummaryStatistic> Summarizable<BootstrapSummary<T>> for BootstrapResult<T> {
+    fn summarize(self) -> BootstrapSummary<T> {
+        let statistics = T::compute_stats(&self.samples);
+
+        // Determine central value, default to Zero if missing (and assume dimension from samples)
+        let central_val = self.central_val.unwrap_or_else(|| {
+            let len = self.samples.first().map(|s| s.len()).unwrap_or(1);
+            T::zero(len)
+        });
+
+        BootstrapSummary {
             n_boot: self.n_boot,
             replicas: self.samples,
-            central_val: central_vals,
+            central_val,
             failed_samples: self.failed_samples,
-            statistics: statistics_vec,
+            statistics,
         }
     }
 }
