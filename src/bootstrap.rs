@@ -71,6 +71,19 @@ impl<F> Estimator<F> {
     pub fn indices(&self) -> &[usize] {
         &self.indices
     }
+    pub fn set_indices<T>(
+        self,
+        indices: Vec<usize>,
+    ) -> Estimator<impl Fn(&[usize]) -> Option<T> + Send + Sync + Clone>
+    where
+        F: Fn(&[usize]) -> Option<T> + Send + Sync + Clone + 'static,
+        T: BootstrapStatistic,
+    {
+        Estimator {
+            func: self.func,
+            indices: indices,
+        }
+    }
 
     /// Consumes the current Estimator and returns a new one that applies bias correction.
     ///
