@@ -56,7 +56,7 @@ impl Sampler for SamplingStrategy {
 
         match self {
             SamplingStrategy::Simple => m_of_n_indices(indices, 1),
-            SamplingStrategy::MOutOfN { m } => m_of_n_indices(indices, m.clone()),
+            SamplingStrategy::MOutOfN { m } => m_of_n_indices(indices, *m),
             SamplingStrategy::Block { block_size } => block_indices(indices, block_size.clone()),
         }
     }
