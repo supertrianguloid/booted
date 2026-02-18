@@ -64,47 +64,56 @@ fn calculate_stats(data: &mut [f64]) -> Option<Statistics> {
     })
 }
 
-/// Trait that defines the structure of the Summary Statistics for a given type.
 pub trait SummaryStatistic: BootstrapStatistic + Debug {
     /// The type of the statistics object (e.g. `Statistics` or `Vec<Statistics>`)
     type Stats: Serialize + Debug + Clone + Send + Sync;
 
     /// Logic to reduce a list of replicas into the Stats type.
     fn compute_stats(samples: &[Self]) -> Self::Stats;
+
+    /// Extract the standard error (stddev) from the stats back into the type T.
+    fn standard_error(stats: &Self::Stats) -> Self;
 }
 
 impl SummaryStatistic for f64 {
     type Stats = Statistics;
+
     fn compute_stats(samples: &[Self]) -> Self::Stats {
         let mut data = samples.to_vec();
         calculate_stats(&mut data).expect("No samples to calculate stats")
+    }
+
+    fn standard_error(stats: &Self::Stats) -> Self {
+        stats.stddev
     }
 }
 
 impl SummaryStatistic for Vec<f64> {
     type Stats = Vec<Statistics>;
+
     fn compute_stats(samples: &[Self]) -> Self::Stats {
         if samples.is_empty() {
             panic!("No valid bootstrap samples generated.");
         }
-
+        // ... (transpose logic remains the same) ...
         let vec_len = samples[0].len();
         let n_samples = samples.len();
-
-        // Transpose data: [sample][stat] -> [stat][sample]
         let mut transposed = vec![Vec::with_capacity(n_samples); vec_len];
         for sample in samples {
             for (i, val) in sample.iter().enumerate() {
                 transposed[i].push(*val);
             }
         }
-
         let mut statistics_vec = Vec::with_capacity(vec_len);
         for mut col_data in transposed.into_iter() {
             let statistics = calculate_stats(&mut col_data).unwrap();
             statistics_vec.push(statistics);
         }
         statistics_vec
+    }
+
+    fn standard_error(stats: &Self::Stats) -> Self {
+        stats.iter().map(|s| s.stddev).collect()
     }
 }
 
