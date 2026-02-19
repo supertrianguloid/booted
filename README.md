@@ -31,7 +31,6 @@ fn main() {
     let estimator = Estimator::new()
         .indices((0..n).collect())
         .from(move |indices: &[usize]| {
-            if indices.is_empty() { return None; }
             let sum: f64 = indices.iter().map(|&i| data[i]).sum();
             Some(sum / indices.len() as f64)
         })
@@ -41,7 +40,6 @@ fn main() {
     let result = Bootstrap::builder()
         .estimator(estimator)
         .n_boot(5000)                                // Generate 5000 resamples
-        .sampler(SamplingStrategy::Simple)           // Standard n-out-of-n sampling
         .build()
         .run();
 
