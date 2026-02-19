@@ -46,16 +46,16 @@ impl Sampler for SamplingStrategy {
             let n_blocks = effective_len / block_size;
 
             let mut rng = rand::rng();
-            let mut indices = Vec::with_capacity(effective_len);
+            let mut indices_new = Vec::with_capacity(effective_len);
 
             for _ in 0..n_blocks {
                 let block = rng.random_range(0..n_blocks);
                 let start = offset + block * block_size;
                 for j in 0..block_size {
-                    indices.push(start + j);
+                    indices_new.push(indices[start + j]);
                 }
             }
-            indices
+            indices_new
         }
 
         match self {
@@ -112,10 +112,12 @@ mod tests {
     #[test]
     fn block_indices_test() {
         let indices = (0..10).collect::<Vec<usize>>();
+        let indices2 = vec![1, 1, 1, 2, 2, 2, 2];
         assert_eq!(
             &SamplingStrategy::Block { block_size: 10 }.sample(&indices),
             &indices
         );
         dbg!(SamplingStrategy::Block { block_size: 9 }.sample(&indices));
+        dbg!(SamplingStrategy::Block { block_size: 2 }.sample(&indices2));
     }
 }
