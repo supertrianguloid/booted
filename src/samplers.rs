@@ -10,6 +10,7 @@ pub enum SamplingStrategy {
     Simple,
     MOutOfN { m: usize },
     Block { block_size: usize },
+    Thinned { block_size: usize },
 }
 
 impl Sampler for SamplingStrategy {
@@ -59,9 +60,13 @@ impl Sampler for SamplingStrategy {
         }
 
         match self {
-            SamplingStrategy::Simple => m_of_n_indices(indices, 1),
+            SamplingStrategy::Simple => m_of_n_indices(indices, indices.len()),
             SamplingStrategy::MOutOfN { m } => m_of_n_indices(indices, *m),
             SamplingStrategy::Block { block_size } => block_indices(indices, block_size.clone()),
+            SamplingStrategy::Thinned { block_size } => {
+                let m = indices.len() / block_size;
+                SamplingStrategy::MOutOfN { m }.sample(indices)
+            }
         }
     }
 }
@@ -99,9 +104,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn thinned_sample_test() {
+    fn m_of_n_sample_test() {
         let sample = (SamplingStrategy::MOutOfN { m: 2 }).sample(&(0..10).collect::<Vec<usize>>());
-        assert_eq!(sample.len(), 5);
+        assert_eq!(sample.len(), 2);
         let sample = (SamplingStrategy::MOutOfN { m: 3 }).sample(&(0..10).collect::<Vec<usize>>());
         assert_eq!(sample.len(), 3);
     }
@@ -119,5 +124,15 @@ mod tests {
         );
         dbg!(SamplingStrategy::Block { block_size: 9 }.sample(&indices));
         dbg!(SamplingStrategy::Block { block_size: 2 }.sample(&indices2));
+    }
+    #[test]
+    fn thinned_sample_test() {
+        let indices: Vec<usize> = (0..10).collect();
+        let sample_thinned_2 = SamplingStrategy::Thinned { block_size: 2 }.sample(&indices);
+        assert_eq!(sample_thinned_2.len(), 5);
+        dbg!(sample_thinned_2);
+        let sample_thinned_3 = SamplingStrategy::Thinned { block_size: 3 }.sample(&indices);
+        assert_eq!(sample_thinned_3.len(), 3);
+        dbg!(sample_thinned_3);
     }
 }
