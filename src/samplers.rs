@@ -15,15 +15,19 @@ pub enum SamplingStrategy {
 impl Sampler for SamplingStrategy {
     fn sample(&self, indices: &[usize]) -> Vec<usize> {
         // #[inline(always)]
-        fn m_of_n_indices(indices: &[usize], block_size: usize) -> Vec<usize> {
-            let length_new = indices.len() / block_size;
+        fn m_of_n_indices(indices: &[usize], m: usize) -> Vec<usize> {
+            if m == 0 || indices.is_empty() {
+                return Vec::new();
+            }
+
             let mut rng = rand::rng();
             let index_indices: Vec<_> = Uniform::try_from(0..indices.len())
                 .unwrap()
                 .sample_iter(&mut rng)
-                .take(length_new)
+                .take(m)
                 .collect();
-            let mut new_indices = vec![];
+
+            let mut new_indices = Vec::with_capacity(m);
             for i in index_indices {
                 new_indices.push(indices[i]);
             }
