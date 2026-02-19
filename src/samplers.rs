@@ -105,4 +105,13 @@ mod tests {
     fn block_jackknife_test() {
         dbg!(generate_block_jackknife_indices(4, 10));
     }
+    #[test]
+    fn block_indices_test() {
+        let indices = (0..10).collect::<Vec<usize>>();
+        assert_eq!(
+            &SamplingStrategy::Block { block_size: 10 }.sample(&indices),
+            &indices
+        );
+        dbg!(SamplingStrategy::Block { block_size: 9 }.sample(&indices));
+    }
 }
