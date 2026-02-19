@@ -1,5 +1,6 @@
 use crate::samplers::{Sampler, SamplingStrategy};
 use bon::Builder;
+use indicatif::{ParallelProgressIterator, ProgressStyle};
 use rand::seq::IndexedRandom;
 use rayon::prelude::*;
 use serde::Serialize;
@@ -196,6 +197,12 @@ impl<F: Clone> Bootstrap<F> {
 
         let samples: Vec<Option<T>> = (0..self.n_boot)
             .into_par_iter()
+            .progress_with_style(
+                ProgressStyle::with_template(
+                    "{spinner:.green} [{eta_precise}] [{wide_bar:.cyan/blue}] [{pos}/{len}]",
+                )
+                .unwrap(),
+            )
             .map(|_| {
                 let resampled_indices = self.sampler.sample(indices);
                 func(&resampled_indices)
