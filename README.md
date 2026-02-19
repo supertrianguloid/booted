@@ -18,7 +18,6 @@ Here is a complete example of calculating the bootstrap mean, standard error, an
 
 ```rust
 use booted::bootstrap::{Bootstrap, Estimator};
-use booted::samplers::SamplingStrategy;
 use booted::summary::{BootstrapSummary, Summarizable};
 
 fn main() {
@@ -39,7 +38,7 @@ fn main() {
     // 3. Configure and run the Bootstrap
     let result = Bootstrap::builder()
         .estimator(estimator)
-        .n_boot(5000)                                // Generate 5000 resamples
+        .n_boot(5000) // Generate 5000 resamples
         .build()
         .run();
 
@@ -48,7 +47,9 @@ fn main() {
 
     println!("Bootstrap Mean: {:.4}", summary.statistics.mean);
     println!("Standard Error (StdDev): {:.4}", summary.statistics.stddev);
-    println!("95% Confidence Interval: [{:.4}, {:.4}]", 
-             summary.statistics.ci_95.low, 
-             summary.statistics.ci_95.high);
+    println!(
+        "95% Confidence Interval: [{:.4}, {:.4}]",
+        summary.statistics.ci_95.low, summary.statistics.ci_95.high
+    );
 }
+````
