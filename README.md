@@ -52,4 +52,4 @@ fn main() {
         summary.statistics.ci_95.low, summary.statistics.ci_95.high
     );
 }
-````
+```
