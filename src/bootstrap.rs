@@ -156,6 +156,30 @@ pub struct BootstrapResult<T> {
     pub sampler: SamplingStrategy,
 }
 
+impl<T> BootstrapResult<T> {
+    /// Applies a function to all of the resampled statistics and to the central value,
+    /// returning a new `BootstrapResult` containing the transformed values.
+    pub fn map<U, F>(&self, mut f: F) -> BootstrapResult<U>
+    where
+        F: FnMut(T) -> U,
+        T: Clone,
+    {
+        // Apply the function to the central value if it exists
+        let central_val = self.central_val.clone().map(&mut f);
+
+        // Apply the function to all of the bootstrap samples
+        let samples = self.samples.clone().into_iter().map(f).collect();
+
+        BootstrapResult {
+            n_boot: self.n_boot,
+            failed_samples: self.failed_samples,
+            samples,
+            central_val,
+            sampler: self.sampler.clone(),
+        }
+    }
+}
+
 impl<F: Clone> Bootstrap<F> {
     pub fn run<T>(self) -> BootstrapResult<T>
     where
