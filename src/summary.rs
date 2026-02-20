@@ -1,4 +1,7 @@
-use crate::bootstrap::{BootstrapResult, BootstrapStatistic};
+use crate::{
+    bootstrap::{BootstrapResult, BootstrapStatistic},
+    samplers::SamplingStrategy,
+};
 use serde::Serialize;
 use std::fmt::Debug;
 
@@ -128,6 +131,7 @@ pub struct BootstrapSummary<T: SummaryStatistic> {
     pub central_val: T,
     pub failed_samples: usize,
     pub statistics: T::Stats,
+    pub sampler: SamplingStrategy,
 }
 
 impl<T: SummaryStatistic> Summarizable<BootstrapSummary<T>> for BootstrapResult<T> {
@@ -145,6 +149,7 @@ impl<T: SummaryStatistic> Summarizable<BootstrapSummary<T>> for BootstrapResult<
             replicas: self.samples,
             central_val,
             failed_samples: self.failed_samples,
+            sampler: self.sampler,
             statistics,
         }
     }
