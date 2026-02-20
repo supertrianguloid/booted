@@ -22,17 +22,12 @@ impl Sampler for SamplingStrategy {
             }
 
             let mut rng = rand::rng();
-            let index_indices: Vec<_> = Uniform::try_from(0..indices.len())
+            Uniform::try_from(0..indices.len())
                 .unwrap()
                 .sample_iter(&mut rng)
                 .take(m)
-                .collect();
-
-            let mut new_indices = Vec::with_capacity(m);
-            for i in index_indices {
-                new_indices.push(indices[i]);
-            }
-            new_indices
+                .map(|i| indices[i])
+                .collect()
         }
         pub fn block_indices(indices: &[usize], block_size: usize) -> Vec<usize> {
             assert!(block_size > 0);
