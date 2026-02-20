@@ -72,7 +72,7 @@ pub trait SummaryStatistic: BootstrapStatistic + Debug {
     type Stats: Serialize + Debug + Clone + Send + Sync;
 
     /// Logic to reduce a list of replicas into the Stats type.
-    fn compute_stats(samples: &[Self]) -> Self::Stats;
+    fn compute_stats(samples: &[Self]) -> Option<Self::Stats>;
 
     /// Extract the standard error (stddev) from the stats back into the type T.
     fn standard_error(stats: &Self::Stats) -> Self;
@@ -81,9 +81,9 @@ pub trait SummaryStatistic: BootstrapStatistic + Debug {
 impl SummaryStatistic for f64 {
     type Stats = Statistics;
 
-    fn compute_stats(samples: &[Self]) -> Self::Stats {
+    fn compute_stats(samples: &[Self]) -> Option<Self::Stats> {
         let mut data = samples.to_vec();
-        calculate_stats(&mut data).expect("No samples to calculate stats")
+        calculate_stats(&mut data)
     }
 
     fn standard_error(stats: &Self::Stats) -> Self {
@@ -94,9 +94,9 @@ impl SummaryStatistic for f64 {
 impl SummaryStatistic for Vec<f64> {
     type Stats = Vec<Statistics>;
 
-    fn compute_stats(samples: &[Self]) -> Self::Stats {
+    fn compute_stats(samples: &[Self]) -> Option<Self::Stats> {
         if samples.is_empty() {
-            panic!("No valid bootstrap samples generated.");
+            return None;
         }
         // ... (transpose logic remains the same) ...
         let vec_len = samples[0].len();
@@ -112,7 +112,7 @@ impl SummaryStatistic for Vec<f64> {
             let statistics = calculate_stats(&mut col_data).unwrap();
             statistics_vec.push(statistics);
         }
-        statistics_vec
+        Some(statistics_vec)
     }
 
     fn standard_error(stats: &Self::Stats) -> Self {
@@ -130,7 +130,7 @@ pub struct BootstrapSummary<T: SummaryStatistic> {
     pub replicas: Vec<T>,
     pub central_val: T,
     pub failed_samples: usize,
-    pub statistics: T::Stats,
+    pub statistics: Option<T::Stats>,
     pub sampler: SamplingStrategy,
 }
 

@@ -29,7 +29,6 @@ fn test_scalar_bootstrap_mean() {
             Some(sum / indices.len() as f64)
         })
         .build();
-
     // 3. Configure Bootstrap
     let bootstrap = Bootstrap::new()
         .estimator(estimator)
@@ -46,16 +45,17 @@ fn test_scalar_bootstrap_mean() {
 
     assert_eq!(summary.n_boot, 2000);
     assert_eq!(summary.failed_samples, 0);
+    let statistics = summary.statistics.unwrap();
     assert!(
-        (summary.statistics.mean - true_mean).abs() < 0.2,
+        (statistics.mean - true_mean).abs() < 0.2,
         "Mean deviated too far"
     );
     assert!(
-        summary.statistics.stddev > 0.05 && summary.statistics.stddev < 0.08,
+        statistics.stddev > 0.05 && statistics.stddev < 0.08,
         "Standard Error out of expected range"
     );
-    assert!(summary.statistics.ci_95.low < true_mean);
-    assert!(summary.statistics.ci_95.high > true_mean);
+    assert!(statistics.ci_95.low < true_mean);
+    assert!(statistics.ci_95.high > true_mean);
 }
 
 #[test]
@@ -91,9 +91,10 @@ fn test_vector_bootstrap_multivariate() {
 
     println!("Vector Summary: {:?}", summary);
     assert_eq!(summary.n_boot, 500);
-    assert_eq!(summary.statistics.len(), 2);
-    assert!((summary.statistics[0].mean - 5.0).abs() < 0.5);
-    assert!((summary.statistics[1].mean - 20.0).abs() < 1.0);
+    let statistics = summary.statistics.unwrap();
+    assert_eq!(statistics.len(), 2);
+    assert!((statistics[0].mean - 5.0).abs() < 0.5);
+    assert!((statistics[1].mean - 20.0).abs() < 1.0);
 }
 
 #[test]
@@ -118,7 +119,8 @@ fn test_bias_corrected_bootstrap() {
 
     assert_eq!(summary.n_boot, 200);
     assert!(summary.failed_samples == 0);
-    assert!(summary.statistics.stddev > 0.0);
+    let statistics = summary.statistics.unwrap();
+    assert!(statistics.stddev > 0.0);
 }
 
 #[test]
@@ -140,7 +142,8 @@ fn test_handling_failures() {
 
     assert!(summary.failed_samples > 0);
     assert!(summary.failed_samples < 100);
-    assert_eq!(summary.statistics.mean, 1.0);
+    let statistics = summary.statistics.unwrap();
+    assert_eq!(statistics.mean, 1.0);
 }
 
 #[test]
@@ -176,6 +179,7 @@ fn test_double_bootstrap() {
                     .run()
                     .summarize() // Infers BootstrapSummary<f64>
                     .statistics
+                    .unwrap()
                     .stddev,
             )
         })
