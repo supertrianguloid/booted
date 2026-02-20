@@ -36,7 +36,7 @@ fn main() {
         .build();
 
     // 3. Configure and run the Bootstrap
-    let result = Bootstrap::builder()
+    let result = Bootstrap::new()
         .estimator(estimator)
         .n_boot(5000) // Generate 5000 resamples
         .build()
