@@ -1,3 +1,5 @@
+use std::arch::x86_64::_CMP_FALSE_OQ;
+
 use crate::samplers::{Sampler, SamplingStrategy};
 use bon::Builder;
 use indicatif::{ParallelProgressIterator, ProgressStyle};
@@ -146,6 +148,8 @@ pub struct Bootstrap<F: Clone> {
     n_boot: usize,
     #[builder(default = SamplingStrategy::Simple)]
     sampler: SamplingStrategy,
+    #[builder(default = false)]
+    print_progress: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -194,20 +198,29 @@ impl<F: Clone> Bootstrap<F> {
         // and we are inside `run(self)`, we own the function.
         // We pass a reference to the function to `map`, requiring F to be Sync.
         let func = &self.estimator.func;
-
-        let samples: Vec<Option<T>> = (0..self.n_boot)
-            .into_par_iter()
-            .progress_with_style(
-                ProgressStyle::with_template(
-                    "{spinner:.green} [{eta_precise}] [{wide_bar:.cyan/blue}] [{pos}/{len}]",
+        let samples: Vec<Option<T>> = if self.print_progress {
+            (0..self.n_boot)
+                .into_par_iter()
+                .progress_with_style(
+                    ProgressStyle::with_template(
+                        "{spinner:.green} [{eta_precise}] [{wide_bar:.cyan/blue}] [{pos}/{len}]",
+                    )
+                    .unwrap(),
                 )
-                .unwrap(),
-            )
-            .map(|_| {
-                let resampled_indices = self.sampler.sample(indices);
-                func(&resampled_indices)
-            })
-            .collect();
+                .map(|_| {
+                    let resampled_indices = self.sampler.sample(indices);
+                    func(&resampled_indices)
+                })
+                .collect()
+        } else {
+            (0..self.n_boot)
+                .into_par_iter()
+                .map(|_| {
+                    let resampled_indices = self.sampler.sample(indices);
+                    func(&resampled_indices)
+                })
+                .collect()
+        };
 
         let (passed, failed): (Vec<_>, Vec<_>) = samples.into_iter().partition(Option::is_some);
         let valid_samples: Vec<T> = passed.into_iter().map(Option::unwrap).collect();
