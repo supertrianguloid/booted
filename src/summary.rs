@@ -34,7 +34,7 @@ fn calculate_stats(data: &mut [f64]) -> Option<Statistics> {
     let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
     let stddev = variance.sqrt();
     let mid = data.len() / 2;
-    let median = if data.len() % 2 == 0 {
+    let median = if data.len().is_multiple_of(2) {
         (data[mid - 1] + data[mid]) / 2.0
     } else {
         data[mid]

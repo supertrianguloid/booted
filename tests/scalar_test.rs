@@ -31,7 +31,7 @@ fn test_scalar_bootstrap_mean() {
         .build();
 
     // 3. Configure Bootstrap
-    let bootstrap = Bootstrap::builder()
+    let bootstrap = Bootstrap::new()
         .estimator(estimator)
         .n_boot(2000)
         .sampler(SamplingStrategy::Simple)
@@ -82,10 +82,7 @@ fn test_vector_bootstrap_multivariate() {
         .build();
 
     // 3. Configure Bootstrap
-    let bootstrap = Bootstrap::builder()
-        .estimator(estimator)
-        .n_boot(500)
-        .build();
+    let bootstrap = Bootstrap::new().estimator(estimator).n_boot(500).build();
 
     // 4. Run and Summarize
     let result = bootstrap.run();
@@ -114,10 +111,7 @@ fn test_bias_corrected_bootstrap() {
         .build()
         .bias_correct(100);
 
-    let bootstrap = Bootstrap::builder()
-        .estimator(estimator)
-        .n_boot(200)
-        .build();
+    let bootstrap = Bootstrap::new().estimator(estimator).n_boot(200).build();
 
     let result = bootstrap.run();
     let summary: BootstrapSummary<f64> = result.summarize();
@@ -139,10 +133,7 @@ fn test_handling_failures() {
         })
         .build();
 
-    let bootstrap = Bootstrap::builder()
-        .estimator(estimator)
-        .n_boot(100)
-        .build();
+    let bootstrap = Bootstrap::new().estimator(estimator).n_boot(100).build();
 
     let result = bootstrap.run();
     let summary: BootstrapSummary<f64> = result.summarize();
@@ -177,7 +168,7 @@ fn test_double_bootstrap() {
 
             // Run inner bootstrap to get stddev
             Some(
-                Bootstrap::builder()
+                Bootstrap::new()
                     .estimator(inner_estimator)
                     .n_boot(n_boot)
                     .sampler(SamplingStrategy::Simple)
@@ -191,7 +182,7 @@ fn test_double_bootstrap() {
         .build();
 
     // 3. Configure Bootstrap
-    let bootstrap = Bootstrap::builder()
+    let bootstrap = Bootstrap::new()
         .estimator(outer_estimator)
         .n_boot(n_boot)
         .sampler(SamplingStrategy::Simple)

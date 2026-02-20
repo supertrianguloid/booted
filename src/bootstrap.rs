@@ -1,5 +1,3 @@
-use std::arch::x86_64::_CMP_FALSE_OQ;
-
 use crate::samplers::{Sampler, SamplingStrategy};
 use bon::Builder;
 use indicatif::{ParallelProgressIterator, ProgressStyle};
@@ -84,7 +82,7 @@ impl<F: Clone> Estimator<F> {
     {
         Estimator {
             func: self.func,
-            indices: indices,
+            indices,
         }
     }
 
@@ -142,6 +140,7 @@ impl<F: Clone> Estimator<F> {
 }
 
 #[derive(Builder)]
+#[builder(start_fn = new)]
 pub struct Bootstrap<F: Clone> {
     estimator: Estimator<F>,
     #[builder(default = 1000)]

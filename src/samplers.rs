@@ -62,7 +62,7 @@ impl Sampler for SamplingStrategy {
         match self {
             SamplingStrategy::Simple => m_of_n_indices(indices, indices.len()),
             SamplingStrategy::MOutOfN { m } => m_of_n_indices(indices, *m),
-            SamplingStrategy::Block { block_size } => block_indices(indices, block_size.clone()),
+            SamplingStrategy::Block { block_size } => block_indices(indices, *block_size),
             SamplingStrategy::Thinned { block_size } => {
                 let m = indices.len() / block_size;
                 SamplingStrategy::MOutOfN { m }.sample(indices)
