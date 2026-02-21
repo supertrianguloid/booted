@@ -114,7 +114,7 @@ impl<F: Clone> Estimator<F> {
                     .map(|_| *data.choose(&mut rand::rng()).unwrap())
                     .collect();
 
-                dbg!(&resampled_data);
+                // dbg!(&resampled_data);
 
                 if let Some(val) = stat(&resampled_data) {
                     boot_sum = boot_sum.add(&val);
