@@ -198,3 +198,145 @@ fn test_double_bootstrap() {
 
     println!("Scalar Summary: {:?}", summary);
 }
+#[test]
+fn test_bias_corrected_ratio_of_means() {
+    let n = 20;
+    let mut rng = rand::rng();
+
+    // Generate correlated X and Y
+    let normal_x = Normal::new(10.0, 2.0).unwrap();
+    let normal_err = Normal::new(0.0, 1.0).unwrap();
+
+    let mut x_data = Vec::with_capacity(n);
+    let mut y_data = Vec::with_capacity(n);
+
+    for _ in 0..n {
+        let x = normal_x.sample(&mut rng);
+        // Y is highly correlated with X
+        let y = 2.0 * x + 5.0 + normal_err.sample(&mut rng);
+        x_data.push(x);
+        y_data.push(y);
+    }
+
+    // 1. Uncorrected Estimator
+    let x_data_uncorrected = x_data.clone();
+    let y_data_uncorrected = y_data.clone();
+    let estimator_uncorrected = Estimator::new()
+        .indices((0..n).collect())
+        .from(move |indices: &[usize]| {
+            let mean_x =
+                indices.iter().map(|&i| x_data_uncorrected[i]).sum::<f64>() / indices.len() as f64;
+            let mean_y =
+                indices.iter().map(|&i| y_data_uncorrected[i]).sum::<f64>() / indices.len() as f64;
+            Some(mean_y / mean_x)
+        })
+        .build();
+
+    // 2. Corrected Estimator
+    let x_data_corrected = x_data.clone();
+    let y_data_corrected = y_data.clone();
+    let estimator_corrected = Estimator::new()
+        .indices((0..n).collect())
+        .from(move |indices: &[usize]| {
+            let mean_x =
+                indices.iter().map(|&i| x_data_corrected[i]).sum::<f64>() / indices.len() as f64;
+            let mean_y =
+                indices.iter().map(|&i| y_data_corrected[i]).sum::<f64>() / indices.len() as f64;
+            Some(mean_y / mean_x)
+        })
+        .build()
+        .bias_correct(200); // 200 inner bootstrap iterations
+
+    let summary_uncorrected: BootstrapSummary<f64> = Bootstrap::new()
+        .estimator(estimator_uncorrected)
+        .n_boot(1000)
+        .build()
+        .run()
+        .summarize();
+
+    let summary_corrected: BootstrapSummary<f64> = Bootstrap::new()
+        .estimator(estimator_corrected)
+        .n_boot(1000)
+        .build()
+        .run()
+        .summarize();
+
+    let uncorrected_mean = summary_uncorrected.statistics.unwrap().mean;
+    let corrected_mean = summary_corrected.statistics.unwrap().mean;
+
+    println!("Uncorrected Ratio Mean: {:.4}", uncorrected_mean);
+    println!("Corrected Ratio Mean:   {:.4}", corrected_mean);
+
+    // The ratio estimator typically has a non-zero bias. We assert that the bias correction
+    // actively shifts the estimate.
+    assert!(
+        (uncorrected_mean - corrected_mean).abs() > 1e-4,
+        "Bias correction should alter the mean of the biased ratio estimator"
+    );
+}
+#[test]
+fn test_bias_corrected_variance() {
+    let n = 10;
+    // Hardcoded small dataset to ensure deterministic bias direction
+    let data: Vec<f64> = vec![0.5, -0.2, 1.1, 0.8, -0.9, 0.1, 0.3, -1.5, 0.6, -0.1];
+
+    // 1. Uncorrected Estimator (Biased sample variance: divide by N)
+    let data_uncorrected = data.clone();
+    let estimator_uncorrected = Estimator::new()
+        .indices((0..n).collect())
+        .from(move |indices: &[usize]| {
+            let len = indices.len() as f64;
+            let mean = indices.iter().map(|&i| data_uncorrected[i]).sum::<f64>() / len;
+            let var = indices
+                .iter()
+                .map(|&i| (data_uncorrected[i] - mean).powi(2))
+                .sum::<f64>()
+                / len;
+            Some(var)
+        })
+        .build();
+
+    // 2. Corrected Estimator
+    let data_corrected = data.clone();
+    let estimator_corrected = Estimator::new()
+        .indices((0..n).collect())
+        .from(move |indices: &[usize]| {
+            let len = indices.len() as f64;
+            let mean = indices.iter().map(|&i| data_corrected[i]).sum::<f64>() / len;
+            let var = indices
+                .iter()
+                .map(|&i| (data_corrected[i] - mean).powi(2))
+                .sum::<f64>()
+                / len;
+            Some(var)
+        })
+        .build()
+        .bias_correct(250);
+
+    let summary_uncorrected: BootstrapSummary<f64> = Bootstrap::new()
+        .estimator(estimator_uncorrected)
+        .n_boot(1000)
+        .build()
+        .run()
+        .summarize();
+
+    let summary_corrected: BootstrapSummary<f64> = Bootstrap::new()
+        .estimator(estimator_corrected)
+        .n_boot(1000)
+        .build()
+        .run()
+        .summarize();
+
+    let uncorrected_var_mean = summary_uncorrected.statistics.unwrap().mean;
+    let corrected_var_mean = summary_corrected.statistics.unwrap().mean;
+
+    println!("Uncorrected Variance Mean: {:.4}", uncorrected_var_mean);
+    println!("Corrected Variance Mean:   {:.4}", corrected_var_mean);
+
+    // The uncorrected sample variance is downward biased.
+    // Therefore, an effective bias correction must shift the expected value upwards.
+    assert!(
+        corrected_var_mean >= uncorrected_var_mean,
+        "Bias correction should increase the strictly downward-biased sample variance"
+    );
+}
