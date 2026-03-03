@@ -17,9 +17,11 @@ pub struct ConfidenceInterval {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Statistics {
+    pub n: usize,
     pub mean: f64,
     pub median: f64,
     pub stddev: f64,
+    pub iqr: f64,
     pub ci_68: ConfidenceInterval,
     pub ci_95: ConfidenceInterval,
     pub ci_99: ConfidenceInterval,
@@ -49,9 +51,11 @@ pub fn calculate_stats(data: &mut [f64]) -> Option<Statistics> {
     };
 
     Some(Statistics {
+        n: data.len(),
         mean,
         median,
         stddev,
+        iqr: quantile(0.75) - quantile(0.25),
         ci_68: ConfidenceInterval {
             low: quantile((1.0 - ONE_SIGMA) / 2.0),
             high: quantile((1.0 + ONE_SIGMA) / 2.0),
