@@ -25,7 +25,7 @@ pub struct Statistics {
     pub ci_99: ConfidenceInterval,
 }
 
-fn calculate_stats(data: &mut [f64]) -> Option<Statistics> {
+pub fn calculate_stats(data: &mut [f64]) -> Option<Statistics> {
     if data.is_empty() {
         return None;
     }
