@@ -120,8 +120,8 @@ impl SummaryStatistic for Vec<f64> {
     }
 }
 
-pub trait Summarizable<SummaryType> {
-    fn summarize(self) -> SummaryType;
+pub trait Summarisable<SummaryType> {
+    fn summarise(self) -> SummaryType;
 }
 
 #[derive(Debug, Serialize)]
@@ -134,8 +134,8 @@ pub struct BootstrapSummary<T: SummaryStatistic> {
     pub sampler: SamplingStrategy,
 }
 
-impl<T: SummaryStatistic> Summarizable<BootstrapSummary<T>> for BootstrapResult<T> {
-    fn summarize(self) -> BootstrapSummary<T> {
+impl<T: SummaryStatistic> Summarisable<BootstrapSummary<T>> for BootstrapResult<T> {
+    fn summarise(self) -> BootstrapSummary<T> {
         let statistics = T::compute_stats(&self.samples);
 
         // Determine central value, default to Zero if missing (and assume dimension from samples)

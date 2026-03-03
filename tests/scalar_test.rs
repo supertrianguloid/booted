@@ -3,7 +3,7 @@
 use booted::bootstrap::Bootstrap;
 use booted::bootstrap::Estimator;
 use booted::samplers::SamplingStrategy;
-use booted::summary::{BootstrapSummary, Summarizable};
+use booted::summary::{BootstrapSummary, Summarisable};
 use rand_distr::{Distribution, Normal};
 
 /// Helper to generate noisy data from a Normal distribution
@@ -36,10 +36,10 @@ fn test_scalar_bootstrap_mean() {
         .sampler(SamplingStrategy::Simple)
         .build();
 
-    // 4. Run and Summarize
+    // 4. Run and Summarise
     let result = bootstrap.run();
     // Explicitly typing the summary for clarity, though inference works too
-    let summary: BootstrapSummary<f64> = result.summarize();
+    let summary: BootstrapSummary<f64> = result.summarise();
 
     println!("Scalar Summary: {:?}", summary);
 
@@ -84,10 +84,10 @@ fn test_vector_bootstrap_multivariate() {
     // 3. Configure Bootstrap
     let bootstrap = Bootstrap::new().estimator(estimator).n_boot(500).build();
 
-    // 4. Run and Summarize
+    // 4. Run and summarise
     let result = bootstrap.run();
     // Using generic Summary with Vec<f64>
-    let summary: BootstrapSummary<Vec<f64>> = result.summarize();
+    let summary: BootstrapSummary<Vec<f64>> = result.summarise();
 
     println!("Vector Summary: {:?}", summary);
     assert_eq!(summary.n_boot, 500);
@@ -115,7 +115,7 @@ fn test_bias_corrected_bootstrap() {
     let bootstrap = Bootstrap::new().estimator(estimator).n_boot(200).build();
 
     let result = bootstrap.run();
-    let summary: BootstrapSummary<f64> = result.summarize();
+    let summary: BootstrapSummary<f64> = result.summarise();
 
     assert_eq!(summary.n_boot, 200);
     assert!(summary.failed_samples == 0);
@@ -138,7 +138,7 @@ fn test_handling_failures() {
     let bootstrap = Bootstrap::new().estimator(estimator).n_boot(100).build();
 
     let result = bootstrap.run();
-    let summary: BootstrapSummary<f64> = result.summarize();
+    let summary: BootstrapSummary<f64> = result.summarise();
 
     assert!(summary.failed_samples > 0);
     assert!(summary.failed_samples < 100);
@@ -177,7 +177,7 @@ fn test_double_bootstrap() {
                     .sampler(SamplingStrategy::Simple)
                     .build()
                     .run()
-                    .summarize() // Infers BootstrapSummary<f64>
+                    .summarise() // Infers BootstrapSummary<f64>
                     .statistics
                     .unwrap()
                     .stddev,
@@ -192,9 +192,9 @@ fn test_double_bootstrap() {
         .sampler(SamplingStrategy::Simple)
         .build();
 
-    // 4. Run and Summarize
+    // 4. Run and summarise
     let result = bootstrap.run();
-    let summary: BootstrapSummary<f64> = result.summarize();
+    let summary: BootstrapSummary<f64> = result.summarise();
 
     println!("Scalar Summary: {:?}", summary);
 }
@@ -252,14 +252,14 @@ fn test_bias_corrected_ratio_of_means() {
         .n_boot(1000)
         .build()
         .run()
-        .summarize();
+        .summarise();
 
     let summary_corrected: BootstrapSummary<f64> = Bootstrap::new()
         .estimator(estimator_corrected)
         .n_boot(1000)
         .build()
         .run()
-        .summarize();
+        .summarise();
 
     let uncorrected_mean = summary_uncorrected.statistics.unwrap().mean;
     let corrected_mean = summary_corrected.statistics.unwrap().mean;
@@ -318,14 +318,14 @@ fn test_bias_corrected_variance() {
         .n_boot(1000)
         .build()
         .run()
-        .summarize();
+        .summarise();
 
     let summary_corrected: BootstrapSummary<f64> = Bootstrap::new()
         .estimator(estimator_corrected)
         .n_boot(1000)
         .build()
         .run()
-        .summarize();
+        .summarise();
 
     let uncorrected_var_mean = summary_uncorrected.statistics.unwrap().mean;
     let corrected_var_mean = summary_corrected.statistics.unwrap().mean;
