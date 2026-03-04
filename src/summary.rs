@@ -22,6 +22,8 @@ pub struct Statistics {
     pub median: f64,
     pub stddev: f64,
     pub iqr: f64,
+    pub max: f64,
+    pub min: f64,
     pub ci_68: ConfidenceInterval,
     pub ci_95: ConfidenceInterval,
     pub ci_99: ConfidenceInterval,
@@ -55,6 +57,8 @@ pub fn calculate_stats(data: &mut [f64]) -> Option<Statistics> {
         mean,
         median,
         stddev,
+        min: *data.first().unwrap(),
+        max: *data.last().unwrap(),
         iqr: quantile(0.75) - quantile(0.25),
         ci_68: ConfidenceInterval {
             low: quantile((1.0 - ONE_SIGMA) / 2.0),
