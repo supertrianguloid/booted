@@ -106,10 +106,11 @@ impl SummaryStatistic for Vec<f64> {
         if samples.is_empty() {
             return None;
         }
-        // ... (transpose logic remains the same) ...
         let vec_len = samples[0].len();
         let n_samples = samples.len();
-        let mut transposed = vec![Vec::with_capacity(n_samples); vec_len];
+        let mut transposed: Vec<Vec<f64>> = (0..vec_len)
+            .map(|_| Vec::with_capacity(n_samples))
+            .collect();
         for sample in samples {
             for (i, val) in sample.iter().enumerate() {
                 transposed[i].push(*val);
