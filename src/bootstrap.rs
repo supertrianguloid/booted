@@ -11,6 +11,7 @@ pub trait BootstrapStatistic: Sized + Clone + Send + Sync + Serialize + 'static 
     fn scale(&self, factor: f64) -> Self;
     fn zero(len: usize) -> Self;
     fn len(&self) -> usize;
+    fn add_assign(&mut self, other: &Self);
 }
 
 impl BootstrapStatistic for f64 {
@@ -29,6 +30,9 @@ impl BootstrapStatistic for f64 {
     fn len(&self) -> usize {
         1
     }
+    fn add_assign(&mut self, other: &Self) {
+        *self += *other;
+    }
 }
 
 impl BootstrapStatistic for Vec<f64> {
@@ -46,6 +50,11 @@ impl BootstrapStatistic for Vec<f64> {
     }
     fn len(&self) -> usize {
         self.len()
+    }
+    fn add_assign(&mut self, other: &Self) {
+        for (a, b) in self.iter_mut().zip(other) {
+            *a += b;
+        }
     }
 }
 
@@ -117,7 +126,7 @@ impl<F: Clone> Estimator<F> {
                 // dbg!(&resampled_data);
 
                 if let Some(val) = stat(&resampled_data) {
-                    boot_sum = boot_sum.add(&val);
+                    boot_sum.add_assign(&val);
                     valid_count += 1;
                 }
             }
