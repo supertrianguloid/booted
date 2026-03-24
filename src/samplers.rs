@@ -3,7 +3,13 @@ use rand::distr::{Distribution, Uniform};
 use serde::Serialize;
 
 pub trait Sampler {
-    fn sample(&self, indices: &[usize]) -> Vec<usize>;
+    fn sample_into_buffer(&self, indices: &[usize], buffer: &mut Vec<usize>);
+    fn sample(&self, indices: &[usize]) -> Vec<usize> {
+        // Pre-allocate based on input length as a good default guess
+        let mut buffer = Vec::with_capacity(indices.len());
+        self.sample_into_buffer(indices, &mut buffer);
+        buffer
+    }
 }
 #[derive(Debug, Serialize, Clone)]
 pub enum SamplingStrategy {
@@ -13,49 +19,50 @@ pub enum SamplingStrategy {
 }
 
 impl Sampler for SamplingStrategy {
-    fn sample(&self, indices: &[usize]) -> Vec<usize> {
-        // #[inline(always)]
-        fn m_of_n_indices(indices: &[usize], m: usize) -> Vec<usize> {
+    fn sample_into_buffer(&self, indices: &[usize], buffer: &mut Vec<usize>) {
+        buffer.clear();
+
+        fn m_of_n_into(indices: &[usize], m: usize, buffer: &mut Vec<usize>) {
             if m == 0 || indices.is_empty() {
-                return Vec::new();
+                return;
             }
 
+            buffer.reserve(m);
             let mut rng = rand::rng();
-            Uniform::try_from(0..indices.len())
-                .unwrap()
-                .sample_iter(&mut rng)
-                .take(m)
-                .map(|i| indices[i])
-                .collect()
+            buffer.extend(
+                Uniform::try_from(0..indices.len())
+                    .unwrap()
+                    .sample_iter(&mut rng)
+                    .take(m)
+                    .map(|i| indices[i]),
+            );
         }
-        pub fn block_indices(indices: &[usize], block_size: usize) -> Vec<usize> {
+
+        fn block_into(indices: &[usize], block_size: usize, buffer: &mut Vec<usize>) {
             assert!(block_size > 0);
             let data_len = indices.len();
-
             let effective_len = data_len - data_len % block_size;
+
             if effective_len == 0 {
-                return Vec::new();
+                return;
             }
 
+            buffer.reserve(effective_len);
             let offset = data_len - effective_len;
             let n_blocks = effective_len / block_size;
-
             let mut rng = rand::rng();
-            let mut indices_new = Vec::with_capacity(effective_len);
 
             for _ in 0..n_blocks {
                 let block = rng.random_range(0..n_blocks);
                 let start = offset + block * block_size;
-                indices_new.extend_from_slice(&indices[start..start + block_size]);
+                buffer.extend_from_slice(&indices[start..start + block_size]);
             }
-
-            indices_new
         }
 
         match self {
-            SamplingStrategy::Simple => m_of_n_indices(indices, indices.len()),
-            SamplingStrategy::MOutOfN { m } => m_of_n_indices(indices, *m),
-            SamplingStrategy::Block { block_size } => block_indices(indices, *block_size),
+            SamplingStrategy::Simple => m_of_n_into(indices, indices.len(), buffer),
+            SamplingStrategy::MOutOfN { m } => m_of_n_into(indices, *m, buffer),
+            SamplingStrategy::Block { block_size } => block_into(indices, *block_size, buffer),
         }
     }
 }

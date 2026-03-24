@@ -208,18 +208,24 @@ impl<F: Clone> Bootstrap<F> {
                     )
                     .unwrap(),
                 )
-                .map(|_| {
-                    let resampled_indices = self.sampler.sample(indices);
-                    func(&resampled_indices)
-                })
+                .map_init(
+                    || Vec::with_capacity(indices.len()),
+                    |buffer, _| {
+                        self.sampler.sample_into_buffer(indices, buffer);
+                        func(buffer)
+                    },
+                )
                 .collect()
         } else {
             (0..self.n_boot)
                 .into_par_iter()
-                .map(|_| {
-                    let resampled_indices = self.sampler.sample(indices);
-                    func(&resampled_indices)
-                })
+                .map_init(
+                    || Vec::with_capacity(indices.len()),
+                    |buffer, _| {
+                        self.sampler.sample_into_buffer(indices, buffer);
+                        func(buffer)
+                    },
+                )
                 .collect()
         };
 
