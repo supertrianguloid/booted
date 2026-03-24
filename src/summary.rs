@@ -34,7 +34,7 @@ pub fn calculate_stats(data: &mut [f64]) -> Option<Statistics> {
         return None;
     }
 
-    data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    data.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
     let n = data.len() as f64;
     let mean = data.iter().sum::<f64>() / n;
