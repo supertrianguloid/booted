@@ -46,10 +46,9 @@ impl Sampler for SamplingStrategy {
             for _ in 0..n_blocks {
                 let block = rng.random_range(0..n_blocks);
                 let start = offset + block * block_size;
-                for j in 0..block_size {
-                    indices_new.push(indices[start + j]);
-                }
+                indices_new.extend_from_slice(&indices[start..start + block_size]);
             }
+
             indices_new
         }
 
