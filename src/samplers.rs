@@ -16,6 +16,7 @@ pub enum SamplingStrategy {
     Simple,
     MOutOfN { m: usize },
     Block { block_size: usize },
+    MovingBlock { block_size: usize },
 }
 
 impl Sampler for SamplingStrategy {
@@ -59,15 +60,40 @@ impl Sampler for SamplingStrategy {
             }
         }
 
+        // Moving Block Bootstrap (Künsch 1989): overlapping blocks, n - k + 1 starts.
+        fn moving_block_into(indices: &[usize], block_size: usize, buffer: &mut Vec<usize>) {
+            assert!(block_size > 0);
+            let data_len = indices.len();
+            if data_len < block_size {
+                return;
+            }
+
+            let n_blocks = data_len / block_size;
+            let total_len = n_blocks * block_size;
+            let n_starts = data_len - block_size + 1;
+
+            buffer.reserve(total_len);
+            let mut rng = rand::rng();
+
+            for _ in 0..n_blocks {
+                let start = rng.random_range(0..n_starts);
+                buffer.extend_from_slice(&indices[start..start + block_size]);
+            }
+        }
+
         match self {
             SamplingStrategy::Simple => m_of_n_into(indices, indices.len(), buffer),
             SamplingStrategy::MOutOfN { m } => m_of_n_into(indices, *m, buffer),
             SamplingStrategy::Block { block_size } => block_into(indices, *block_size, buffer),
+            SamplingStrategy::MovingBlock { block_size } => {
+                moving_block_into(indices, *block_size, buffer)
+            }
         }
     }
 }
 
 pub fn generate_block_jackknife_indices(blocksize: usize, data_length: usize) -> Vec<Vec<usize>> {
+    assert!(blocksize > 0);
     let remainder = data_length % blocksize;
 
     let sample_start_index = remainder;
@@ -120,5 +146,24 @@ mod tests {
         );
         dbg!(SamplingStrategy::Block { block_size: 9 }.sample(&indices));
         dbg!(SamplingStrategy::Block { block_size: 2 }.sample(&indices2));
+    }
+
+    #[test]
+    fn moving_block_indices_test() {
+        let indices: Vec<usize> = (0..10).collect();
+
+        let sample = SamplingStrategy::MovingBlock { block_size: 10 }.sample(&indices);
+        assert_eq!(sample, indices);
+
+        let sample = SamplingStrategy::MovingBlock { block_size: 3 }.sample(&indices);
+        assert_eq!(sample.len(), 9);
+        for chunk in sample.chunks(3) {
+            let start = chunk[0];
+            assert!(start + 3 <= indices.len());
+            assert_eq!(chunk, &indices[start..start + 3]);
+        }
+
+        let sample = SamplingStrategy::MovingBlock { block_size: 11 }.sample(&indices);
+        assert!(sample.is_empty());
     }
 }

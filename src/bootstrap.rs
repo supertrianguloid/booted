@@ -1,7 +1,7 @@
 use crate::samplers::{Sampler, SamplingStrategy};
 use bon::Builder;
 use indicatif::{ParallelProgressIterator, ProgressStyle};
-use rand::seq::IndexedRandom;
+use rand::distr::{Distribution, Uniform};
 use rayon::prelude::*;
 use serde::Serialize;
 
@@ -114,24 +114,28 @@ impl<F: Clone> Estimator<F> {
             T: BootstrapStatistic,
         {
             let n = data.len();
+            if n == 0 {
+                return None;
+            }
             let theta_hat = stat(data)?;
 
             let mut boot_sum = T::zero(theta_hat.len());
             let mut valid_count = 0;
+            let mut resampled = Vec::with_capacity(n);
+            let mut rng = rand::rng();
+            let dist = Uniform::try_from(0..n).unwrap();
+
             for _ in 0..n_boot {
-                let resampled_data: Vec<usize> = (0..n)
-                    .map(|_| *data.choose(&mut rand::rng()).unwrap())
-                    .collect();
+                resampled.clear();
+                resampled.extend((&dist).sample_iter(&mut rng).take(n).map(|i| data[i]));
 
-                // dbg!(&resampled_data);
-
-                if let Some(val) = stat(&resampled_data) {
+                if let Some(val) = stat(&resampled) {
                     boot_sum.add_assign(&val);
                     valid_count += 1;
                 }
             }
 
-            if valid_count < n_boot / 2 {
+            if valid_count == 0 || valid_count < n_boot / 2 {
                 return None;
             }
 
@@ -238,12 +242,13 @@ impl<F: Clone> Bootstrap<F> {
                 .collect()
         };
 
-        let (passed, failed): (Vec<_>, Vec<_>) = samples.into_iter().partition(Option::is_some);
-        let valid_samples: Vec<T> = passed.into_iter().map(Option::unwrap).collect();
+        let total = samples.len();
+        let valid_samples: Vec<T> = samples.into_iter().flatten().collect();
+        let failed_samples = total - valid_samples.len();
 
         BootstrapResult {
             n_boot: self.n_boot,
-            failed_samples: failed.len(),
+            failed_samples,
             samples: valid_samples,
             central_val,
             sampler: self.sampler,
