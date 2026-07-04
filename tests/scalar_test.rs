@@ -2,6 +2,36 @@ use booted::{
     Bootstrap, BootstrapSummary, Estimator, EstimatorError, SamplingStrategy, Summarisable,
 };
 use rand_distr::{Distribution, Normal};
+use serde_json::Value;
+
+/// Downstream tooling (analysis pipelines, reports) reads `central_val` as
+/// a bare scalar and `failed_samples` as a count. Assert that both keys
+/// still exist in the emitted JSON, even after the 0.6 refactor that
+/// changed the underlying in-memory representation to `Result` /
+/// `Vec<EstimatorError>`.
+#[test]
+fn legacy_json_shape_preserved() {
+    let data: Vec<f64> = (1..=10).map(|x| x as f64).collect();
+    let est = Estimator::new((0..data.len()).collect(), move |ind| {
+        Ok(ind.iter().map(|&i| data[i]).sum::<f64>() / ind.len() as f64)
+    });
+    let summary: BootstrapSummary<f64> = Bootstrap::new(est)
+        .n_boot(50)
+        .seed(1)
+        .run()
+        .unwrap()
+        .summarise();
+    let v: Value = serde_json::from_str(&serde_json::to_string(&summary).unwrap()).unwrap();
+    assert!(v.get("central_val").unwrap().is_number());
+    assert!(v.get("failed_samples").unwrap().is_number());
+    assert!(v.get("replicas").unwrap().is_array());
+    assert!(v.get("statistics").unwrap().is_object());
+    assert!(v.get("n_boot").unwrap().is_number());
+    assert!(v.get("sampler").is_some());
+    // New diagnostic fields are also present
+    assert!(v.get("failure_reasons").unwrap().is_array());
+    assert!(v.get("truncated").is_some());
+}
 
 fn generate_data(n: usize, mean: f64, std_dev: f64) -> Vec<f64> {
     let normal = Normal::new(mean, std_dev).unwrap();

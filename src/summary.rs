@@ -1,6 +1,7 @@
 use crate::bootstrap::{BootstrapResult, EstimatorError, EstimatorResult};
 use crate::samplers::SamplingStrategy;
-use serde::Serialize;
+use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 use std::fmt::Debug;
 
 const ONE_SIGMA: f64 = 0.682_689_492_137_086;
@@ -139,7 +140,7 @@ pub trait Summarisable<S> {
     fn summarise(self) -> S;
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 #[non_exhaustive]
 pub struct BootstrapSummary<T: SummaryStatistic> {
     pub n_boot: usize,
@@ -147,11 +148,36 @@ pub struct BootstrapSummary<T: SummaryStatistic> {
     pub seed: Option<u64>,
     pub truncated: usize,
     /// Central estimator result. If the central sample failed, the error is
-    /// preserved verbatim rather than being replaced by a zero value.
+    /// preserved in memory. On serialization it flattens to a scalar (or
+    /// `null` on failure) under the legacy key `central_val`, so downstream
+    /// tooling that reads a bare value keeps working.
     pub central: EstimatorResult<T>,
     pub replicas: Vec<T>,
     pub failures: Vec<EstimatorError>,
     pub statistics: Option<T::Stats>,
+}
+
+// Hand-written to preserve the legacy JSON shape while also emitting the
+// new diagnostic fields. Downstream consumers that read `central_val` and
+// `failed_samples` continue to work; new consumers can also see
+// `failure_reasons`, `seed`, and `truncated`.
+impl<T: SummaryStatistic> Serialize for BootstrapSummary<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut s = serializer.serialize_struct("BootstrapSummary", 9)?;
+        s.serialize_field("n_boot", &self.n_boot)?;
+        s.serialize_field("sampler", &self.sampler)?;
+        s.serialize_field("seed", &self.seed)?;
+        s.serialize_field("truncated", &self.truncated)?;
+        match &self.central {
+            Ok(v) => s.serialize_field("central_val", v)?,
+            Err(_) => s.serialize_field("central_val", &Option::<T>::None)?,
+        };
+        s.serialize_field("replicas", &self.replicas)?;
+        s.serialize_field("failed_samples", &self.failures.len())?;
+        s.serialize_field("failure_reasons", &self.failures)?;
+        s.serialize_field("statistics", &self.statistics)?;
+        s.end()
+    }
 }
 
 impl<T: SummaryStatistic> Summarisable<BootstrapSummary<T>> for BootstrapResult<T> {
